@@ -58,18 +58,12 @@ Download checkpoints of [3D networks](https://drive.google.com/file/d/1-akuukaYY
   ```
 Results will be saved in ./results/real_imgs/.
 
-## TODO
-- [x] Share the HiSa & HiDa datasets
-- [x] Release the code for converting images to HairStep
-- [x] Release the code for reconstructing 3D strands from HairStep
-- [ ] Release the code for computing metrics HairSale & HairRida 
-- [ ] Release the code for training and data pre-processing
-
-(within a few days before the end of Feb., sorry for the delay)
-
-**Note**: A more compact and efficient sub-module for 3D hair reconstruction has been released, which has comparable performance to NeuralHDHair* reported in the paper.
+## Note
+A more compact and efficient sub-module for 3D hair reconstruction has been released, which has comparable performance to NeuralHDHair* reported in the paper.
 
 The original hair matting approach is provided by Kuaishou Technology, which cannot be released. The substitute method based on SAM fails sometimes.
+
+We release a differentiable 3D strands renderer at https://github.com/PAULYZHENG/DiffHairStrandsRender. It supports rendering orientation and depth maps from your 3D hair outputs, which can be further used to compute HairSale and HairRida.
 
 ## Citation
 Please cite our paper as below if you find this repository is helpful:
