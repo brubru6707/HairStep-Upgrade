@@ -55,8 +55,8 @@ def eval_grid_octree(coords, eval_func,
 
     sdf = np.zeros(resolution)
 
-    dirty = np.ones(resolution, dtype=np.bool)
-    grid_mask = np.zeros(resolution, dtype=np.bool)
+    dirty = np.ones(resolution, dtype=bool)
+    grid_mask = np.zeros(resolution, dtype=bool)
 
     reso = resolution[0] // init_resolution
 
@@ -65,36 +65,46 @@ def eval_grid_octree(coords, eval_func,
         grid_mask[0:resolution[0]:reso, 0:resolution[1]:reso, 0:resolution[2]:reso] = True
         # test samples in this iteration
         test_mask = np.logical_and(grid_mask, dirty)
-        #print('step size:', reso, 'test sample size:', test_mask.sum())
         points = coords[:, test_mask]
 
         sdf[test_mask] = batch_eval(points, eval_func, num_samples=num_samples)
         dirty[test_mask] = False
 
-        # do interpolation
         if reso <= 1:
             break
-        for x in range(0, resolution[0] - reso, reso):
-            for y in range(0, resolution[1] - reso, reso):
-                for z in range(0, resolution[2] - reso, reso):
-                    # if center marked, return
-                    if not dirty[x + reso // 2, y + reso // 2, z + reso // 2]:
-                        continue
-                    v0 = sdf[x, y, z]
-                    v1 = sdf[x, y, z + reso]
-                    v2 = sdf[x, y + reso, z]
-                    v3 = sdf[x, y + reso, z + reso]
-                    v4 = sdf[x + reso, y, z]
-                    v5 = sdf[x + reso, y, z + reso]
-                    v6 = sdf[x + reso, y + reso, z]
-                    v7 = sdf[x + reso, y + reso, z + reso]
-                    v = np.array([v0, v1, v2, v3, v4, v5, v6, v7])
-                    v_min = v.min()
-                    v_max = v.max()
-                    # this cell is all the same
-                    if (v_max - v_min) < threshold:
-                        sdf[x:x + reso, y:y + reso, z:z + reso] = (v_max + v_min) / 2
-                        dirty[x:x + reso, y:y + reso, z:z + reso] = False
+
+        # Vectorized interpolation: replaces triple nested Python loop
+        # which was O(res^3) pure Python iterations — too slow at res=256
+        xs = np.arange(0, resolution[0] - reso, reso)
+        ys = np.arange(0, resolution[1] - reso, reso)
+        zs = np.arange(0, resolution[2] - reso, reso)
+        xg, yg, zg = np.meshgrid(xs, ys, zs, indexing='ij')
+        xg, yg, zg = xg.ravel(), yg.ravel(), zg.ravel()
+
+        center_dirty = dirty[xg + reso // 2, yg + reso // 2, zg + reso // 2]
+        xg = xg[center_dirty]
+        yg = yg[center_dirty]
+        zg = zg[center_dirty]
+
+        if len(xg) > 0:
+            corners = np.stack([
+                sdf[xg,        yg,        zg       ],
+                sdf[xg,        yg,        zg + reso],
+                sdf[xg,        yg + reso, zg       ],
+                sdf[xg,        yg + reso, zg + reso],
+                sdf[xg + reso, yg,        zg       ],
+                sdf[xg + reso, yg,        zg + reso],
+                sdf[xg + reso, yg + reso, zg       ],
+                sdf[xg + reso, yg + reso, zg + reso],
+            ], axis=1)
+            v_min = corners.min(axis=1)
+            v_max = corners.max(axis=1)
+            uniform = (v_max - v_min) < threshold
+            for i in np.where(uniform)[0]:
+                x, y, z = xg[i], yg[i], zg[i]
+                sdf[x:x + reso, y:y + reso, z:z + reso] = (v_min[i] + v_max[i]) / 2
+                dirty[x:x + reso, y:y + reso, z:z + reso] = False
+
         reso //= 2
 
     return sdf.reshape(resolution)

@@ -27,7 +27,7 @@ All data of HiSa & HiDa is hosted on Google Drive:
 
 ## Installation
   ```
-git clone --recursive https://github.com/GAP-LAB-CUHK-SZ/HairStep.git
+git clone --recursive https://github.com/brubru6707/HairStep-Upgrade.git
 
 cd HairStep
 
@@ -43,6 +43,86 @@ sh ./build.sh
 cd ../../
   ```
 Code originally tested on torch1.9.0, CUDA11.1, Ubuntu 20.04 LTS. Updated to support PyTorch 2.x, CUDA 12.1, Python 3.10.
+
+## Google Colab Installation
+
+Run the following cells in order in a GPU-enabled Colab notebook (Runtime → Change runtime type → T4 GPU).
+
+**1. Clone and enter the repo**
+```python
+!git clone --recursive https://github.com/brubru6707/HairStep-Upgrade.git
+%cd /content/HairStep-Upgrade
+```
+
+**2. Install dependencies** (PyTorch and CUDA are already available in Colab)
+```python
+!pip install -r requirements.txt
+```
+
+**3. Patch and build 3DDFA_V2** (`np.int*` aliases removed in NumPy 1.24+)
+```python
+import re
+pyx_path = "/content/HairStep-Upgrade/external/3DDFA_V2/FaceBoxes/utils/nms/cpu_nms.pyx"
+with open(pyx_path, "r") as f:
+    src = f.read()
+src = src.replace("np.int_t", "np.intp_t")   # Cython compile-time type, removed in NumPy 2.0
+src = src.replace("dtype=np.int)", "dtype=np.intp)")  # runtime dtype alias, removed in NumPy 1.24
+src = re.sub(r'\bnp\.int\b(?!_|p)', 'int', src)  # np.int alias (no suffix), removed in NumPy 1.24
+with open(pyx_path, "w") as f:
+    f.write(src)
+print("Patched cpu_nms.pyx")
+```
+```python
+%cd /content/HairStep-Upgrade/external/3DDFA_V2
+!sh ./build.sh
+%cd /content/HairStep-Upgrade
+```
+
+**4. Mount Google Drive and copy checkpoints + input image**
+```python
+from google.colab import drive
+drive.mount('/content/drive')
+```
+```python
+import shutil, os
+
+# --- adjust these paths to match where your files live in Drive ---
+DRIVE_ROOT = "/content/drive/MyDrive"
+
+# 3D network checkpoints (orienNet, occNet, and the third .pth file)
+os.makedirs("/content/HairStep-Upgrade/checkpoints/recon3D", exist_ok=True)
+for fname in ["orienNet.pth", "occNet.pth", "model.pth"]:   # rename as needed
+    src = f"{DRIVE_ROOT}/{fname}"
+    dst = f"/content/HairStep-Upgrade/checkpoints/recon3D/{fname}"
+    if os.path.exists(src):
+        shutil.copy(src, dst)
+        print(f"Copied {fname}")
+    else:
+        print(f"NOT FOUND: {src} — check the filename/path")
+
+# Input portrait image
+os.makedirs("/content/HairStep-Upgrade/results/real_imgs/img", exist_ok=True)
+shutil.copy(f"{DRIVE_ROOT}/image.png",
+            "/content/HairStep-Upgrade/results/real_imgs/img/image.png")
+print("Copied image.png")
+```
+```python
+# SAM checkpoint (downloaded directly — no Drive needed)
+!mkdir -p /content/HairStep-Upgrade/checkpoints/SAM-models
+!wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth \
+    -P /content/HairStep-Upgrade/checkpoints/SAM-models/
+```
+
+**5. Run reconstruction**
+```python
+%cd /content/HairStep-Upgrade
+
+!python -m scripts.img2hairstep
+!python scripts/get_lmk.py
+!python -m scripts.opt_cam
+!python -m scripts.recon3D
+```
+Results will be saved in `results/real_imgs/`.
 
 ## Single-view 3D Hair Reconstruction
 Put collected and cropped potrait images into ./results/real_imgs/img/. 
