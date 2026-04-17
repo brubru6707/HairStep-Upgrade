@@ -34,7 +34,7 @@ cd HairStep
 conda env create -f environment.yml
 conda activate hairstep
 
-pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 pip install -r requirements.txt
 
@@ -42,7 +42,7 @@ cd external/3DDFA_V2
 sh ./build.sh
 cd ../../
   ```
-Code is tested on torch1.9.0, CUDA11.1, Ubuntu 20.04 LTS.
+Code originally tested on torch1.9.0, CUDA11.1, Ubuntu 20.04 LTS. Updated to support PyTorch 2.x, CUDA 12.1, Python 3.10.
 
 ## Single-view 3D Hair Reconstruction
 Put collected and cropped potrait images into ./results/real_imgs/img/. 
