@@ -112,6 +112,7 @@ def recon3D_from_hairstep(opt):
     orien_net = load_orienNet(cuda, opt)
 
     items = os.listdir(strand_dir)
+    
     print('[DEBUG] recon3D_from_hairstep started')
     print('[DEBUG] strand directory:', strand_dir)
     print('[DEBUG] total items found:', len(items))
