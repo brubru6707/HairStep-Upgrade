@@ -86,12 +86,24 @@ def save_strands_with_mesh(strands, mesh_path, outputpath, err=0.3, is_eval=Fals
 
     flat_pts = valid_strands.reshape(-1, 3)
     print(f'[DEBUG] mesh.contains starting: {flat_pts.shape[0]} points ({len(valid_indices)} valid strands)'); sys.stdout.flush()
+    # Use Open3D raycasting — avoids trimesh multiprocessing deadlock in Colab/Jupyter
+    legacy_mesh = o3d.geometry.TriangleMesh(
+        vertices=o3d.utility.Vector3dVector(np.asarray(mesh.vertices, dtype=np.float32)),
+        triangles=o3d.utility.Vector3iVector(np.asarray(mesh.faces, dtype=np.int32)),
+    )
+    t_mesh = o3d.t.geometry.TriangleMesh.from_legacy(legacy_mesh)
+    scene = o3d.t.geometry.RaycastingScene()
+    scene.add_triangles(t_mesh)
+    print(f'[DEBUG] Open3D raycasting scene built'); sys.stdout.flush()
+
     chunk_size = 50000
     chunks = [flat_pts[i:i+chunk_size] for i in range(0, len(flat_pts), chunk_size)]
     results = []
     for ci, chunk in enumerate(chunks):
         print(f'[DEBUG] mesh.contains chunk {ci+1}/{len(chunks)} ({len(chunk)} pts)'); sys.stdout.flush()
-        results.append(mesh.contains(chunk))
+        query = o3d.core.Tensor(chunk.astype(np.float32), dtype=o3d.core.Dtype.Float32)
+        occupancy = scene.compute_occupancy(query)
+        results.append(occupancy.numpy().astype(bool))
     all_pts_in_out = np.concatenate(results).reshape(len(valid_indices), strands.shape[1])
     print(f'[DEBUG] mesh.contains done: {all_pts_in_out.sum()} points inside mesh'); sys.stdout.flush()
 
