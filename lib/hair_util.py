@@ -70,11 +70,16 @@ def save_strands_with_mesh(strands, mesh_path, outputpath, err=0.3, is_eval=Fals
     lines = []
     sline = 0
 
+    valid_mask = np.array([
+        not (np.dot(strands[i,0], strands[i,0]) < 0.001 or np.dot(strands[i,1], strands[i,1]) < 0.001)
+        for i in range(strands.shape[0])
+    ])
+
     for i in range(strands.shape[0]):
         current_pc_all_valid = []
         first_step = strands[i,0] - strands[i,1]
         first_step = np.dot(first_step, first_step)
-        if np.dot(strands[i,0], strands[i,0])<0.001 or np.dot(strands[i,1], strands[i,1])<0.001:
+        if not valid_mask[i]:
             continue
         num_pt = 2
         current_pc_all_valid.append(strands[i][0])

@@ -112,6 +112,9 @@ def recon3D_from_hairstep(opt):
     orien_net = load_orienNet(cuda, opt)
 
     items = os.listdir(strand_dir)
+    print('[DEBUG] recon3D_from_hairstep started')
+    print('[DEBUG] strand directory:', strand_dir)
+    print('[DEBUG] total items found:', len(items))
 
     with torch.no_grad():
         for item in tqdm(items):
@@ -122,16 +125,40 @@ def recon3D_from_hairstep(opt):
             calib_path = os.path.join(calib_dir, item[:-3] + 'npy')
             depth_path = os.path.join(depth_dir, item[:-3] + 'npy')
 
+            print('[DEBUG] processing item:', item)
+            print('[DEBUG] paths:', {
+                'strand_path': strand_path,
+                'seg_path': seg_path,
+                'depth_path': depth_path,
+                'calib_path': calib_path,
+                'mesh_path': mesh_path,
+                'hair3D_path': hair3D_path,
+            })
+
             if os.path.exists(hair3D_path):
+                print('[DEBUG] skip existing output:', hair3D_path)
                 continue
+
+            if not os.path.exists(strand_path):
+                print('[DEBUG] missing strand file:', strand_path)
+            if not os.path.exists(seg_path):
+                print('[DEBUG] missing seg file:', seg_path)
+            if not os.path.exists(depth_path):
+                print('[DEBUG] missing depth file:', depth_path)
+            if not os.path.exists(calib_path):
+                print('[DEBUG] missing calib file:', calib_path)
 
             calib = load_calib(calib_path)
             hairstep = load_hairstep(strand_path, depth_path, seg_path, opt.loadSize)
+            print('[DEBUG] loaded calib shape:', tuple(calib.shape))
+            print('[DEBUG] loaded hairstep shape:', tuple(hairstep.shape))
 
             test_data = {'hairstep': hairstep, 'calib':calib}
 
             gen_mesh_real(opt, occ_net, cuda, test_data, mesh_path)
+            print('[DEBUG] mesh generated:', mesh_path)
             export_hair_real(orien_net, cuda, test_data, mesh_path, hair3D_path)
+            print('[DEBUG] hair3D exported:', hair3D_path)
 
 if __name__ == '__main__':
     opt = BaseOptions().parse()
